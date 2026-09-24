@@ -8,8 +8,11 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-const String apiKey = '';
 const String modelName = 'google/gemini-2.5-flash-lite';
+
+// Cloudflare Worker adresi
+const String workerUrl =
+    'https://icy-firefly-520c.nisanurkonar7.workers.dev/';
 
 void main() {
   runApp(const PosTarayiciApp());
@@ -73,35 +76,15 @@ class FisModel {
     };
   }
 
-  factory FisModel.fromJson(
-    Map<String, dynamic> json,
-  ) {
+  factory FisModel.fromJson(Map<String, dynamic> json) {
     return FisModel(
-      magaza:
-          json['magaza']?.toString() ??
-              'Bilinmiyor',
-      tarih:
-          json['tarih']?.toString() ??
-              'Bilinmiyor',
-      kdvOrani:
-          (json['kdvOrani'] as num?)
-                  ?.toDouble() ??
-              0.0,
-      kdvsizTutar:
-          (json['kdvsizTutar'] as num?)
-                  ?.toDouble() ??
-              0.0,
-      kdvTutari:
-          (json['kdvTutari'] as num?)
-                  ?.toDouble() ??
-              0.0,
-      kdvliTutar:
-          (json['kdvliTutar'] as num?)
-                  ?.toDouble() ??
-              0.0,
-      ozet:
-          json['ozet']?.toString() ??
-              '',
+      magaza: json['magaza']?.toString() ?? 'Bilinmiyor',
+      tarih: json['tarih']?.toString() ?? 'Bilinmiyor',
+      kdvOrani: (json['kdvOrani'] as num?)?.toDouble() ?? 0.0,
+      kdvsizTutar: (json['kdvsizTutar'] as num?)?.toDouble() ?? 0.0,
+      kdvTutari: (json['kdvTutari'] as num?)?.toDouble() ?? 0.0,
+      kdvliTutar: (json['kdvliTutar'] as num?)?.toDouble() ?? 0.0,
+      ozet: json['ozet']?.toString() ?? '',
     );
   }
 
@@ -115,23 +98,13 @@ class FisModel {
     String? ozet,
   }) {
     return FisModel(
-      magaza:
-          magaza ?? this.magaza,
-      tarih:
-          tarih ?? this.tarih,
-      kdvOrani:
-          kdvOrani ?? this.kdvOrani,
-      kdvsizTutar:
-          kdvsizTutar ??
-              this.kdvsizTutar,
-      kdvTutari:
-          kdvTutari ??
-              this.kdvTutari,
-      kdvliTutar:
-          kdvliTutar ??
-              this.kdvliTutar,
-      ozet:
-          ozet ?? this.ozet,
+      magaza: magaza ?? this.magaza,
+      tarih: tarih ?? this.tarih,
+      kdvOrani: kdvOrani ?? this.kdvOrani,
+      kdvsizTutar: kdvsizTutar ?? this.kdvsizTutar,
+      kdvTutari: kdvTutari ?? this.kdvTutari,
+      kdvliTutar: kdvliTutar ?? this.kdvliTutar,
+      ozet: ozet ?? this.ozet,
     );
   }
 }
@@ -140,93 +113,72 @@ class FisModel {
 // FİŞ TARAYICI EKRANI
 // =====================================================
 
-class FisTarayiciEkrani
-    extends StatefulWidget {
-  const FisTarayiciEkrani({
-    super.key,
-  });
+class FisTarayiciEkrani extends StatefulWidget {
+  const FisTarayiciEkrani({super.key});
 
   @override
-  State<FisTarayiciEkrani>
-      createState() =>
-          _FisTarayiciEkraniState();
+  State<FisTarayiciEkrani> createState() =>
+      _FisTarayiciEkraniState();
 }
 
 class _FisTarayiciEkraniState
     extends State<FisTarayiciEkrani> {
   Uint8List? _secilenResimBytes;
 
-  final ImagePicker _picker =
-      ImagePicker();
+  final ImagePicker _picker = ImagePicker();
 
   bool _yukleniyor = false;
 
-  final List<FisModel>
-      _tarananFisler = [];
+  final List<FisModel> _tarananFisler = [];
 
   // Analiz edilmiş fakat henüz kaydedilmemiş fiş
   FisModel? _bekleyenFis;
 
   // Yeni taranan fiş düzenleme modu
-  bool _bekleyenFisDuzenleniyor =
-      false;
+  bool _bekleyenFisDuzenleniyor = false;
 
   // Kaydedilmiş fiş düzenleme modu
   int? _duzenlenenKayitIndex;
 
   // Yeni fiş düzenleme alanları
-  final TextEditingController
-      _bekleyenMagazaController =
+  final TextEditingController _bekleyenMagazaController =
       TextEditingController();
 
-  final TextEditingController
-      _bekleyenTarihController =
+  final TextEditingController _bekleyenTarihController =
       TextEditingController();
 
-  final TextEditingController
-      _bekleyenKdvOraniController =
+  final TextEditingController _bekleyenKdvOraniController =
       TextEditingController();
 
-  final TextEditingController
-      _bekleyenKdvsizController =
+  final TextEditingController _bekleyenKdvsizController =
       TextEditingController();
 
-  final TextEditingController
-      _bekleyenKdvliController =
+  final TextEditingController _bekleyenKdvliController =
       TextEditingController();
 
-  final TextEditingController
-      _bekleyenOzetController =
+  final TextEditingController _bekleyenOzetController =
       TextEditingController();
 
   // Kaydedilmiş fiş düzenleme alanları
-  final TextEditingController
-      _kayitliMagazaController =
+  final TextEditingController _kayitliMagazaController =
       TextEditingController();
 
-  final TextEditingController
-      _kayitliTarihController =
+  final TextEditingController _kayitliTarihController =
       TextEditingController();
 
-  final TextEditingController
-      _kayitliKdvOraniController =
+  final TextEditingController _kayitliKdvOraniController =
       TextEditingController();
 
-  final TextEditingController
-      _kayitliKdvsizController =
+  final TextEditingController _kayitliKdvsizController =
       TextEditingController();
 
-  final TextEditingController
-      _kayitliKdvliController =
+  final TextEditingController _kayitliKdvliController =
       TextEditingController();
 
-  final TextEditingController
-      _kayitliOzetController =
+  final TextEditingController _kayitliOzetController =
       TextEditingController();
 
-  static const String
-      _kayitAnahtari =
-      'kayitli_fisler';
+  static const String _kayitAnahtari = 'kayitli_fisler';
 
   @override
   void initState() {
@@ -259,27 +211,18 @@ class _FisTarayiciEkraniState
 
   Future<void> _kayitliFisleriYukle() async {
     try {
-      final prefs =
-          await SharedPreferences
-              .getInstance();
+      final prefs = await SharedPreferences.getInstance();
 
       final kayitlar =
-          prefs.getStringList(
-                _kayitAnahtari,
-              ) ??
-              [];
+          prefs.getStringList(_kayitAnahtari) ?? [];
 
-      final fisler =
-          <FisModel>[];
+      final fisler = <FisModel>[];
 
-      for (final kayit
-          in kayitlar) {
+      for (final kayit in kayitlar) {
         try {
-          final map =
-              jsonDecode(kayit);
+          final map = jsonDecode(kayit);
 
-          if (map
-              is Map<String, dynamic>) {
+          if (map is Map<String, dynamic>) {
             fisler.add(
               FisModel.fromJson(map),
             );
@@ -305,21 +248,16 @@ class _FisTarayiciEkraniState
   // KALICI KAYDET
   // =====================================================
 
-  Future<void>
-      _fisleriKaliciKaydet() async {
+  Future<void> _fisleriKaliciKaydet() async {
     try {
       final prefs =
-          await SharedPreferences
-              .getInstance();
+          await SharedPreferences.getInstance();
 
-      final kayitlar =
-          _tarananFisler
-              .map(
-                (fis) => jsonEncode(
-                  fis.toJson(),
-                ),
-              )
-              .toList();
+      final kayitlar = _tarananFisler
+          .map(
+            (fis) => jsonEncode(fis.toJson()),
+          )
+          .toList();
 
       await prefs.setStringList(
         _kayitAnahtari,
@@ -336,16 +274,13 @@ class _FisTarayiciEkraniState
   // SAYI PARSE
   // =====================================================
 
-  double _parseSayi(
-    String value,
-  ) {
-    var temiz =
-        value
-            .replaceAll('₺', '')
-            .replaceAll('TL', '')
-            .replaceAll('tl', '')
-            .replaceAll('%', '')
-            .trim();
+  double _parseSayi(String value) {
+    var temiz = value
+        .replaceAll('₺', '')
+        .replaceAll('TL', '')
+        .replaceAll('tl', '')
+        .replaceAll('%', '')
+        .trim();
 
     if (temiz.contains(',') &&
         temiz.contains('.')) {
@@ -353,14 +288,10 @@ class _FisTarayiciEkraniState
           .replaceAll('.', '')
           .replaceAll(',', '.');
     } else {
-      temiz =
-          temiz.replaceAll(',', '.');
+      temiz = temiz.replaceAll(',', '.');
     }
 
-    return double.tryParse(
-          temiz,
-        ) ??
-        0.0;
+    return double.tryParse(temiz) ?? 0.0;
   }
 
   // =====================================================
@@ -371,14 +302,11 @@ class _FisTarayiciEkraniState
     double kdvli,
     double kdvsiz,
   ) {
-    if (kdvli <= 0 ||
-        kdvsiz <= 0) {
+    if (kdvli <= 0 || kdvsiz <= 0) {
       return 0.0;
     }
 
-    return ((kdvli - kdvsiz) /
-            kdvsiz) *
-        100;
+    return ((kdvli - kdvsiz) / kdvsiz) * 100;
   }
 
   // =====================================================
@@ -389,13 +317,11 @@ class _FisTarayiciEkraniState
     double kdvli,
     double oran,
   ) {
-    if (kdvli <= 0 ||
-        oran < 0) {
+    if (kdvli <= 0 || oran < 0) {
       return 0.0;
     }
 
-    return kdvli /
-        (1 + oran / 100);
+    return kdvli / (1 + oran / 100);
   }
 
   // =====================================================
@@ -406,13 +332,11 @@ class _FisTarayiciEkraniState
     double kdvsiz,
     double oran,
   ) {
-    if (kdvsiz <= 0 ||
-        oran < 0) {
+    if (kdvsiz <= 0 || oran < 0) {
       return 0.0;
     }
 
-    return kdvsiz *
-        (1 + oran / 100);
+    return kdvsiz * (1 + oran / 100);
   }
 
   // =====================================================
@@ -423,17 +347,13 @@ class _FisTarayiciEkraniState
     double kdvli,
     double kdvsiz,
   ) {
-    if (kdvli <= 0 ||
-        kdvsiz <= 0) {
+    if (kdvli <= 0 || kdvsiz <= 0) {
       return 0.0;
     }
 
-    final sonuc =
-        kdvli - kdvsiz;
+    final sonuc = kdvli - kdvsiz;
 
-    return sonuc < 0
-        ? 0.0
-        : sonuc;
+    return sonuc < 0 ? 0.0 : sonuc;
   }
 
   // =====================================================
@@ -448,9 +368,7 @@ class _FisTarayiciEkraniState
   // MIME TYPE
   // =====================================================
 
-  String _getMimeType(
-    Uint8List bytes,
-  ) {
+  String _getMimeType(Uint8List bytes) {
     if (bytes.length >= 2 &&
         bytes[0] == 0xFF &&
         bytes[1] == 0xD8) {
@@ -506,8 +424,7 @@ class _FisTarayiciEkraniState
       setState(() {
         _secilenResimBytes = bytes;
         _bekleyenFis = null;
-        _bekleyenFisDuzenleniyor =
-            false;
+        _bekleyenFisDuzenleniyor = false;
       });
     } catch (e) {
       _hataDiyalogGoster(
@@ -522,8 +439,7 @@ class _FisTarayiciEkraniState
   // =====================================================
 
   Future<void> _fisAnalizEt() async {
-    if (_secilenResimBytes ==
-        null) {
+    if (_secilenResimBytes == null) {
       _hataDiyalogGoster(
         'Resim Yok',
         'Lütfen önce bir fiş resmi seçin.',
@@ -531,40 +447,20 @@ class _FisTarayiciEkraniState
       return;
     }
 
-    final cleanApiKey =
-        apiKey.trim();
-
-    if (cleanApiKey.isEmpty ||
-        cleanApiKey ==
-            'BURAYA_OPENROUTER_API_KEYINIZI_YAZIN') {
-      _hataDiyalogGoster(
-        'API Key Eksik',
-        'Lütfen OpenRouter API keyinizi kodun başındaki alana yazın.',
-      );
-      return;
-    }
-
     setState(() {
       _yukleniyor = true;
       _bekleyenFis = null;
-      _bekleyenFisDuzenleniyor =
-          false;
+      _bekleyenFisDuzenleniyor = false;
     });
 
     try {
       final base64Image =
-          base64Encode(
-        _secilenResimBytes!,
-      );
+          base64Encode(_secilenResimBytes!);
 
       final detectedMime =
-          _getMimeType(
-        _secilenResimBytes!,
-      );
+          _getMimeType(_secilenResimBytes!);
 
-      final url = Uri.parse(
-        'https://openrouter.ai/api/v1/chat/completions',
-      );
+      final url = Uri.parse(workerUrl);
 
       const promptText = '''
 Bu bir alışveriş/POS fişidir.
@@ -665,8 +561,7 @@ kullanarak eksik değerleri hesapla.
 245,90 → 245.90
 ''';
 
-      final requestBody =
-          jsonEncode({
+      final requestBody = jsonEncode({
         'model': modelName,
         'messages': [
           {
@@ -696,115 +591,98 @@ kullanarak eksik değerleri hesapla.
         },
       });
 
-      final response =
-          await http.post(
+      /*
+       * ÖNEMLİ:
+       *
+       * Artık OpenRouter API key burada bulunmuyor.
+       *
+       * Flutter:
+       *      ↓
+       * Cloudflare Worker:
+       *      ↓
+       * OpenRouter
+       *
+       * Worker kendi secret/environment variable
+       * üzerinden OpenRouter API key'i kullanmalıdır.
+       */
+      final response = await http.post(
         url,
         headers: {
-          'Content-Type':
-              'application/json',
-          'Authorization':
-              'Bearer $cleanApiKey',
-          'HTTP-Referer':
-              'http://localhost',
-          'X-Title':
-              'POS Fis Tarayici',
+          'Content-Type': 'application/json',
         },
         body: requestBody,
       );
 
-      if (response.statusCode !=
-          200) {
+      if (response.statusCode != 200) {
         throw Exception(
           'API Hatası: ${response.statusCode}\n${response.body}',
         );
       }
 
-      final data =
-          jsonDecode(response.body);
+      final data = jsonDecode(response.body);
 
-      final choices =
-          data['choices'];
+      final choices = data['choices'];
 
-      if (choices == null ||
-          choices.isEmpty) {
+      if (choices == null || choices.isEmpty) {
         throw Exception(
           'API boş cevap döndürdü.',
         );
       }
 
       String rawText =
-          choices[0]['message']
-                      ['content']
+          choices[0]['message']['content']
                   ?.toString() ??
               '';
 
-      rawText =
-          rawText.trim();
+      rawText = rawText.trim();
 
-      if (rawText.startsWith(
-        '```json',
-      )) {
-        rawText =
-            rawText.substring(7);
-      } else if (rawText.startsWith(
-        '```',
-      )) {
-        rawText =
-            rawText.substring(3);
+      if (rawText.startsWith('```json')) {
+        rawText = rawText.substring(7);
+      } else if (rawText.startsWith('```')) {
+        rawText = rawText.substring(3);
       }
 
-      if (rawText.endsWith(
-        '```',
-      )) {
-        rawText =
-            rawText.substring(
+      if (rawText.endsWith('```')) {
+        rawText = rawText.substring(
           0,
           rawText.length - 3,
         );
       }
 
-      rawText =
-          rawText.trim();
+      rawText = rawText.trim();
 
-      final parsedMap =
-          jsonDecode(rawText);
+      final parsedMap = jsonDecode(rawText);
 
       final String magaza =
-          parsedMap['magaza']
-                  ?.toString() ??
+          parsedMap['magaza']?.toString() ??
               'Bilinmiyor';
 
       final String tarih =
-          parsedMap['tarih']
-                  ?.toString() ??
+          parsedMap['tarih']?.toString() ??
               'Bilinmiyor';
 
       final String ozet =
-          parsedMap['ozet']
-                  ?.toString() ??
-              '';
+          parsedMap['ozet']?.toString() ?? '';
 
-      double kdvOrani =
-          _parseSayi(
+      double kdvOrani = _parseSayi(
         parsedMap['kdvOrani']
                 ?.toString() ??
             '0',
       );
 
-      double kdvliTutar =
-          _parseSayi(
+      double kdvliTutar = _parseSayi(
         parsedMap['kdvliTutar']
                 ?.toString() ??
             '0',
       );
 
-      double kdvsizTutar =
-          _parseSayi(
+      double kdvsizTutar = _parseSayi(
         parsedMap['kdvsizTutar']
                 ?.toString() ??
             '0',
       );
 
+      // KDV oranı yoksa iki tutardan hesapla
       if (kdvOrani <= 0 &&
           kdvliTutar > 0 &&
           kdvsizTutar > 0) {
@@ -815,6 +693,7 @@ kullanarak eksik değerleri hesapla.
         );
       }
 
+      // KDV'siz tutar yoksa hesapla
       if (kdvsizTutar <= 0 &&
           kdvliTutar > 0 &&
           kdvOrani > 0) {
@@ -825,6 +704,7 @@ kullanarak eksik değerleri hesapla.
         );
       }
 
+      // KDV'li tutar yoksa hesapla
       if (kdvliTutar <= 0 &&
           kdvsizTutar > 0 &&
           kdvOrani > 0) {
@@ -841,33 +721,25 @@ kullanarak eksik değerleri hesapla.
         kdvsizTutar,
       );
 
-      final yeniFis =
-          FisModel(
+      final yeniFis = FisModel(
         magaza: magaza,
         tarih: tarih,
         kdvOrani: kdvOrani,
-        kdvsizTutar:
-            kdvsizTutar,
-        kdvTutari:
-            kdvTutari,
-        kdvliTutar:
-            kdvliTutar,
+        kdvsizTutar: kdvsizTutar,
+        kdvTutari: kdvTutari,
+        kdvliTutar: kdvliTutar,
         ozet: ozet,
       );
 
       if (!mounted) return;
 
       setState(() {
-        _bekleyenFis =
-            yeniFis;
-
-        _bekleyenFisDuzenleniyor =
-            false;
+        _bekleyenFis = yeniFis;
+        _bekleyenFisDuzenleniyor = false;
       });
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
           content: Text(
             'Fiş analiz edildi. Kaydetmeden önce bilgileri kontrol edebilirsiniz.',
@@ -889,7 +761,7 @@ kullanarak eksik değerleri hesapla.
   }
 
   // =====================================================
-  // YENİ FİŞ DÜZENLEME ALANLARINI DOLDUR
+  // YENİ FİŞ DÜZENLEME
   // =====================================================
 
   void _bekleyenFisiDuzenlemeyeAc() {
@@ -897,77 +769,54 @@ kullanarak eksik değerleri hesapla.
       return;
     }
 
-    final fis =
-        _bekleyenFis!;
+    final fis = _bekleyenFis!;
 
-    _bekleyenMagazaController
-        .text = fis.magaza;
+    _bekleyenMagazaController.text =
+        fis.magaza;
 
-    _bekleyenTarihController
-        .text = fis.tarih;
+    _bekleyenTarihController.text =
+        fis.tarih;
 
-    _bekleyenKdvOraniController
-        .text =
+    _bekleyenKdvOraniController.text =
         fis.kdvOrani.toString();
 
-    _bekleyenKdvsizController
-        .text =
-        fis.kdvsizTutar
-            .toStringAsFixed(2);
+    _bekleyenKdvsizController.text =
+        fis.kdvsizTutar.toStringAsFixed(2);
 
-    _bekleyenKdvliController
-        .text =
-        fis.kdvliTutar
-            .toStringAsFixed(2);
+    _bekleyenKdvliController.text =
+        fis.kdvliTutar.toStringAsFixed(2);
 
-    _bekleyenOzetController
-        .text = fis.ozet;
+    _bekleyenOzetController.text =
+        fis.ozet;
 
     setState(() {
-      _bekleyenFisDuzenleniyor =
-          true;
+      _bekleyenFisDuzenleniyor = true;
     });
   }
-
-  // =====================================================
-  // YENİ FİŞ DÜZENLEMEYİ İPTAL
-  // =====================================================
 
   void _bekleyenDuzenlemeyiIptalEt() {
     setState(() {
-      _bekleyenFisDuzenleniyor =
-          false;
+      _bekleyenFisDuzenleniyor = false;
     });
   }
-
-  // =====================================================
-  // YENİ FİŞ DEĞİŞİKLİKLERİNİ UYGULA
-  // =====================================================
 
   void _bekleyenFisDegisiklikleriniUygula() {
     if (_bekleyenFis == null) {
       return;
     }
 
-    double kdvOrani =
-        _parseSayi(
-      _bekleyenKdvOraniController
-          .text,
+    double kdvOrani = _parseSayi(
+      _bekleyenKdvOraniController.text,
     );
 
-    double kdvsizTutar =
-        _parseSayi(
-      _bekleyenKdvsizController
-          .text,
+    double kdvsizTutar = _parseSayi(
+      _bekleyenKdvsizController.text,
     );
 
-    double kdvliTutar =
-        _parseSayi(
-      _bekleyenKdvliController
-          .text,
+    double kdvliTutar = _parseSayi(
+      _bekleyenKdvliController.text,
     );
 
-    // Eksik tutarı hesapla
     if (kdvliTutar <= 0 &&
         kdvsizTutar > 0 &&
         kdvOrani > 0) {
@@ -988,7 +837,6 @@ kullanarak eksik değerleri hesapla.
       );
     }
 
-    // Oran eksikse iki tutardan hesapla
     if (kdvOrani <= 0 &&
         kdvliTutar > 0 &&
         kdvsizTutar > 0) {
@@ -1009,8 +857,7 @@ kullanarak eksik değerleri hesapla.
       _bekleyenFis =
           _bekleyenFis!.copyWith(
         magaza:
-            _bekleyenMagazaController
-                    .text
+            _bekleyenMagazaController.text
                     .trim()
                     .isEmpty
                 ? 'Bilinmiyor'
@@ -1018,35 +865,27 @@ kullanarak eksik değerleri hesapla.
                     .text
                     .trim(),
         tarih:
-            _bekleyenTarihController
-                    .text
+            _bekleyenTarihController.text
                     .trim()
                     .isEmpty
                 ? 'Bilinmiyor'
                 : _bekleyenTarihController
                     .text
                     .trim(),
-        kdvOrani:
-            kdvOrani,
-        kdvsizTutar:
-            kdvsizTutar,
-        kdvTutari:
-            kdvTutari,
-        kdvliTutar:
-            kdvliTutar,
+        kdvOrani: kdvOrani,
+        kdvsizTutar: kdvsizTutar,
+        kdvTutari: kdvTutari,
+        kdvliTutar: kdvliTutar,
         ozet:
-            _bekleyenOzetController
-                .text
+            _bekleyenOzetController.text
                 .trim(),
       );
 
-      _bekleyenFisDuzenleniyor =
-          false;
+      _bekleyenFisDuzenleniyor = false;
     });
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
       const SnackBar(
         content: Text(
           'Değişiklikler uygulandı. Fiş henüz kaydedilmedi.',
@@ -1059,34 +898,25 @@ kullanarak eksik değerleri hesapla.
   // BEKLEYEN FİŞİ KAYDET
   // =====================================================
 
-  Future<void>
-      _bekleyenFisiKaydet() async {
+  Future<void> _bekleyenFisiKaydet() async {
     if (_bekleyenFis == null) {
       return;
     }
 
-    final fis =
-        _bekleyenFis!;
+    final fis = _bekleyenFis!;
 
     setState(() {
-      _tarananFisler.insert(
-        0,
-        fis,
-      );
-
+      _tarananFisler.insert(0, fis);
       _bekleyenFis = null;
-
-      _bekleyenFisDuzenleniyor =
-          false;
+      _bekleyenFisDuzenleniyor = false;
     });
 
     await _fisleriKaliciKaydet();
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
       const SnackBar(
         content: Text(
           'Fiş başarıyla kaydedildi.',
@@ -1096,7 +926,7 @@ kullanarak eksik değerleri hesapla.
   }
 
   // =====================================================
-  // KAYITLI FİŞİ DÜZENLEMEYE AÇ
+  // KAYITLI FİŞİ DÜZENLE
   // =====================================================
 
   void _kayitliFisiDuzenlemeyeAc(
@@ -1107,57 +937,40 @@ kullanarak eksik değerleri hesapla.
       return;
     }
 
-    final fis =
-        _tarananFisler[index];
+    final fis = _tarananFisler[index];
 
-    _kayitliMagazaController
-        .text = fis.magaza;
+    _kayitliMagazaController.text =
+        fis.magaza;
 
-    _kayitliTarihController
-        .text = fis.tarih;
+    _kayitliTarihController.text =
+        fis.tarih;
 
-    _kayitliKdvOraniController
-        .text =
+    _kayitliKdvOraniController.text =
         fis.kdvOrani.toString();
 
-    _kayitliKdvsizController
-        .text =
-        fis.kdvsizTutar
-            .toStringAsFixed(2);
+    _kayitliKdvsizController.text =
+        fis.kdvsizTutar.toStringAsFixed(2);
 
-    _kayitliKdvliController
-        .text =
-        fis.kdvliTutar
-            .toStringAsFixed(2);
+    _kayitliKdvliController.text =
+        fis.kdvliTutar.toStringAsFixed(2);
 
-    _kayitliOzetController
-        .text = fis.ozet;
+    _kayitliOzetController.text =
+        fis.ozet;
 
     setState(() {
-      _duzenlenenKayitIndex =
-          index;
+      _duzenlenenKayitIndex = index;
     });
   }
-
-  // =====================================================
-  // KAYITLI FİŞ DÜZENLEMEYİ İPTAL
-  // =====================================================
 
   void _kayitliDuzenlemeyiIptalEt() {
     setState(() {
-      _duzenlenenKayitIndex =
-          null;
+      _duzenlenenKayitIndex = null;
     });
   }
 
-  // =====================================================
-  // KAYITLI FİŞ DEĞİŞİKLİKLERİNİ KAYDET
-  // =====================================================
-
   Future<void>
       _kayitliFisDegisiklikleriniKaydet() async {
-    final index =
-        _duzenlenenKayitIndex;
+    final index = _duzenlenenKayitIndex;
 
     if (index == null ||
         index < 0 ||
@@ -1165,22 +978,16 @@ kullanarak eksik değerleri hesapla.
       return;
     }
 
-    double kdvOrani =
-        _parseSayi(
-      _kayitliKdvOraniController
-          .text,
+    double kdvOrani = _parseSayi(
+      _kayitliKdvOraniController.text,
     );
 
-    double kdvsizTutar =
-        _parseSayi(
-      _kayitliKdvsizController
-          .text,
+    double kdvsizTutar = _parseSayi(
+      _kayitliKdvsizController.text,
     );
 
-    double kdvliTutar =
-        _parseSayi(
-      _kayitliKdvliController
-          .text,
+    double kdvliTutar = _parseSayi(
+      _kayitliKdvliController.text,
     );
 
     if (kdvliTutar <= 0 &&
@@ -1220,55 +1027,41 @@ kullanarak eksik değerleri hesapla.
     );
 
     final guncelFis =
-        _tarananFisler[index]
-            .copyWith(
+        _tarananFisler[index].copyWith(
       magaza:
-          _kayitliMagazaController
-                  .text
+          _kayitliMagazaController.text
                   .trim()
                   .isEmpty
               ? 'Bilinmiyor'
-              : _kayitliMagazaController
-                  .text
+              : _kayitliMagazaController.text
                   .trim(),
       tarih:
-          _kayitliTarihController
-                  .text
+          _kayitliTarihController.text
                   .trim()
                   .isEmpty
               ? 'Bilinmiyor'
-              : _kayitliTarihController
-                  .text
+              : _kayitliTarihController.text
                   .trim(),
-      kdvOrani:
-          kdvOrani,
-      kdvsizTutar:
-          kdvsizTutar,
-      kdvTutari:
-          kdvTutari,
-      kdvliTutar:
-          kdvliTutar,
+      kdvOrani: kdvOrani,
+      kdvsizTutar: kdvsizTutar,
+      kdvTutari: kdvTutari,
+      kdvliTutar: kdvliTutar,
       ozet:
-          _kayitliOzetController
-              .text
+          _kayitliOzetController.text
               .trim(),
     );
 
     setState(() {
-      _tarananFisler[index] =
-          guncelFis;
-
-      _duzenlenenKayitIndex =
-          null;
+      _tarananFisler[index] = guncelFis;
+      _duzenlenenKayitIndex = null;
     });
 
     await _fisleriKaliciKaydet();
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
       const SnackBar(
         content: Text(
           'Fiş bilgileri güncellendi.',
@@ -1281,29 +1074,24 @@ kullanarak eksik değerleri hesapla.
   // TEK FİŞ SİL
   // =====================================================
 
-  Future<void> _fisSil(
-    int index,
-  ) async {
+  Future<void> _fisSil(int index) async {
     if (index < 0 ||
         index >= _tarananFisler.length) {
       return;
     }
 
-    final fis =
-        _tarananFisler[index];
+    final fis = _tarananFisler[index];
 
     final bool? onay =
         await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder:
-          (dialogContext) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text(
             'Fişi Sil',
             style: TextStyle(
-              fontWeight:
-                  FontWeight.bold,
+              fontWeight: FontWeight.bold,
             ),
           ),
           content: Text(
@@ -1312,31 +1100,23 @@ kullanarak eksik değerleri hesapla.
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop(false);
+                Navigator.of(dialogContext)
+                    .pop(false);
               },
-              child:
-                  const Text(
+              child: const Text(
                 'Vazgeç',
               ),
             ),
             FilledButton(
               onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop(true);
+                Navigator.of(dialogContext)
+                    .pop(true);
               },
-              style:
-                  FilledButton
-                      .styleFrom(
-                backgroundColor:
-                    Colors.red,
-                foregroundColor:
-                    Colors.white,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
               ),
-              child:
-                  const Text(
+              child: const Text(
                 'Sil',
               ),
             ),
@@ -1350,17 +1130,23 @@ kullanarak eksik değerleri hesapla.
     }
 
     setState(() {
-      _tarananFisler
-          .removeAt(index);
+      _tarananFisler.removeAt(index);
+
+      if (_duzenlenenKayitIndex == index) {
+        _duzenlenenKayitIndex = null;
+      } else if (_duzenlenenKayitIndex != null &&
+          _duzenlenenKayitIndex! > index) {
+        _duzenlenenKayitIndex =
+            _duzenlenenKayitIndex! - 1;
+      }
     });
 
     await _fisleriKaliciKaydet();
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
       const SnackBar(
         content: Text(
           'Fiş başarıyla silindi.',
@@ -1373,10 +1159,8 @@ kullanarak eksik değerleri hesapla.
   // TÜM FİŞLERİ SİL
   // =====================================================
 
-  Future<void>
-      _fisleriTemizle() async {
-    if (_tarananFisler
-        .isEmpty) {
+  Future<void> _fisleriTemizle() async {
+    if (_tarananFisler.isEmpty) {
       return;
     }
 
@@ -1384,14 +1168,12 @@ kullanarak eksik değerleri hesapla.
         await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder:
-          (dialogContext) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text(
             'Tüm Fişleri Sil',
             style: TextStyle(
-              fontWeight:
-                  FontWeight.bold,
+              fontWeight: FontWeight.bold,
             ),
           ),
           content: Text(
@@ -1400,31 +1182,23 @@ kullanarak eksik değerleri hesapla.
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop(false);
+                Navigator.of(dialogContext)
+                    .pop(false);
               },
-              child:
-                  const Text(
+              child: const Text(
                 'Vazgeç',
               ),
             ),
             FilledButton(
               onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                ).pop(true);
+                Navigator.of(dialogContext)
+                    .pop(true);
               },
-              style:
-                  FilledButton
-                      .styleFrom(
-                backgroundColor:
-                    Colors.red,
-                foregroundColor:
-                    Colors.white,
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
               ),
-              child:
-                  const Text(
+              child: const Text(
                 'Tümünü Sil',
               ),
             ),
@@ -1441,17 +1215,16 @@ kullanarak eksik değerleri hesapla.
       _tarananFisler.clear();
       _bekleyenFis = null;
       _secilenResimBytes = null;
-      _bekleyenFisDuzenleniyor =
-          false;
+      _bekleyenFisDuzenleniyor = false;
+      _duzenlenenKayitIndex = null;
     });
 
     await _fisleriKaliciKaydet();
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
       const SnackBar(
         content: Text(
           'Tüm fişler başarıyla silindi.',
@@ -1464,9 +1237,7 @@ kullanarak eksik değerleri hesapla.
   // CSV HÜCRESİ
   // =====================================================
 
-  String _csvHucre(
-    String value,
-  ) {
+  String _csvHucre(String value) {
     return '"${value.replaceAll('"', '""')}"';
   }
 
@@ -1475,13 +1246,11 @@ kullanarak eksik değerleri hesapla.
   // =====================================================
 
   String _tarananFislerCsvOlustur() {
-    final satirlar =
-        <String>[
+    final satirlar = <String>[
       'Mağaza,Tarih,KDV Oranı,KDV\'siz Tutar,KDV Tutarı,KDV\'li Toplam,Özet',
     ];
 
-    for (final fis
-        in _tarananFisler) {
+    for (final fis in _tarananFisler) {
       satirlar.add(
         [
           _csvHucre(fis.magaza),
@@ -1490,16 +1259,13 @@ kullanarak eksik değerleri hesapla.
             '%${fis.kdvOrani.toStringAsFixed(0)}',
           ),
           _csvHucre(
-            fis.kdvsizTutar
-                .toStringAsFixed(2),
+            fis.kdvsizTutar.toStringAsFixed(2),
           ),
           _csvHucre(
-            fis.kdvTutari
-                .toStringAsFixed(2),
+            fis.kdvTutari.toStringAsFixed(2),
           ),
           _csvHucre(
-            fis.kdvliTutar
-                .toStringAsFixed(2),
+            fis.kdvliTutar.toStringAsFixed(2),
           ),
           _csvHucre(fis.ozet),
         ].join(','),
@@ -1514,11 +1280,9 @@ kullanarak eksik değerleri hesapla.
   // =====================================================
 
   void _tarananFislerDosyasiniIndir() {
-    if (_tarananFisler
-        .isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
+    if (_tarananFisler.isEmpty) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
         const SnackBar(
           content: Text(
             'Henüz kaydedilmiş fiş bulunmuyor.',
@@ -1536,37 +1300,29 @@ kullanarak eksik değerleri hesapla.
         csv.toJS,
       ].toJS,
       web.BlobPropertyBag(
-        type:
-            'text/csv;charset=utf-8',
+        type: 'text/csv;charset=utf-8',
       ),
     );
 
     final url =
-        web.URL.createObjectURL(
-      blob,
-    );
+        web.URL.createObjectURL(blob);
 
     final anchor =
         web.HTMLAnchorElement()
           ..href = url
           ..download =
               'Taranan_Fisler.csv'
-          ..style.display =
-              'none';
+          ..style.display = 'none';
 
-    web.document.body
-        ?.append(anchor);
+    web.document.body?.append(anchor);
 
     anchor.click();
     anchor.remove();
 
-    web.URL.revokeObjectURL(
-      url,
-    );
+    web.URL.revokeObjectURL(url);
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
       const SnackBar(
         content: Text(
           'Taranan_Fisler.csv dosyası indirildi.',
@@ -1583,8 +1339,7 @@ kullanarak eksik değerleri hesapla.
     return _tarananFisler.fold(
       0.0,
       (toplam, fis) =>
-          toplam +
-          fis.kdvsizTutar,
+          toplam + fis.kdvsizTutar,
     );
   }
 
@@ -1592,8 +1347,7 @@ kullanarak eksik değerleri hesapla.
     return _tarananFisler.fold(
       0.0,
       (toplam, fis) =>
-          toplam +
-          fis.kdvTutari,
+          toplam + fis.kdvTutari,
     );
   }
 
@@ -1601,8 +1355,7 @@ kullanarak eksik değerleri hesapla.
     return _tarananFisler.fold(
       0.0,
       (toplam, fis) =>
-          toplam +
-          fis.kdvliTutar,
+          toplam + fis.kdvliTutar,
     );
   }
 
@@ -1620,27 +1373,20 @@ kullanarak eksik değerleri hesapla.
         return AlertDialog(
           title: Text(
             baslik,
-            style:
-                const TextStyle(
+            style: const TextStyle(
               color: Colors.red,
-              fontWeight:
-                  FontWeight.bold,
+              fontWeight: FontWeight.bold,
             ),
           ),
-          content:
-              SingleChildScrollView(
-            child:
-                SelectableText(mesaj),
+          content: SingleChildScrollView(
+            child: SelectableText(mesaj),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  context,
-                );
+                Navigator.pop(context);
               },
-              child:
-                  const Text(
+              child: const Text(
                 'Tamam',
               ),
             ),
@@ -1651,7 +1397,7 @@ kullanarak eksik değerleri hesapla.
   }
 
   // =====================================================
-  // BEKLEYEN FİŞ GÖRÜNÜMÜ
+  // BEKLEYEN FİŞ
   // =====================================================
 
   Widget _bekleyenFisWidget() {
@@ -1663,251 +1409,145 @@ kullanarak eksik değerleri hesapla.
       return _bekleyenFisDuzenlemeWidget();
     }
 
-    final fis =
-        _bekleyenFis!;
+    final fis = _bekleyenFis!;
 
     return Card(
       color: Colors.amber.shade50,
       elevation: 3,
       child: Padding(
-        padding:
-            const EdgeInsets.all(
-          14,
-        ),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment:
-              CrossAxisAlignment
-                  .start,
+              CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 const Icon(
-                  Icons
-                      .pending_actions,
-                  color:
-                      Colors.orange,
+                  Icons.pending_actions,
+                  color: Colors.orange,
                 ),
-                const SizedBox(
-                  width: 8,
-                ),
+                const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
                     'Kontrol Edilecek Fiş',
-                    style:
-                        TextStyle(
+                    style: TextStyle(
                       fontSize: 17,
-                      fontWeight:
-                          FontWeight.bold,
-                      color:
-                          Colors.orange,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
                     ),
                   ),
                 ),
                 Container(
                   padding:
-                      const EdgeInsets
-                          .symmetric(
+                      const EdgeInsets.symmetric(
                     horizontal: 8,
                     vertical: 4,
                   ),
-                  decoration:
-                      BoxDecoration(
-                    color: Colors
-                        .orange
-                        .shade100,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade100,
                     borderRadius:
-                        BorderRadius
-                            .circular(
-                      8,
-                    ),
+                        BorderRadius.circular(8),
                   ),
-                  child:
-                      const Text(
+                  child: const Text(
                     'Henüz kaydedilmedi',
-                    style:
-                        TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      fontWeight:
-                          FontWeight
-                              .bold,
-                      color:
-                          Colors.orange,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
                     ),
                   ),
                 ),
               ],
             ),
-
-            const SizedBox(
-              height: 12,
-            ),
-
+            const SizedBox(height: 12),
             const Divider(),
-
-            const SizedBox(
-              height: 6,
-            ),
-
+            const SizedBox(height: 6),
             _bilgiSatiri(
               'Mağaza / Firma',
               fis.magaza,
             ),
-
-            const SizedBox(
-              height: 8,
-            ),
-
+            const SizedBox(height: 8),
             _bilgiSatiri(
               'Tarih',
               fis.tarih,
             ),
-
-            const SizedBox(
-              height: 8,
-            ),
-
+            const SizedBox(height: 8),
             _bilgiSatiri(
               'KDV Oranı',
               '%${fis.kdvOrani.toStringAsFixed(0)}',
             ),
-
-            const SizedBox(
-              height: 8,
-            ),
-
+            const SizedBox(height: 8),
             _bilgiSatiri(
               "KDV'siz Tutar",
-              _para(
-                fis.kdvsizTutar,
-              ),
+              _para(fis.kdvsizTutar),
             ),
-
-            const SizedBox(
-              height: 8,
-            ),
-
+            const SizedBox(height: 8),
             _bilgiSatiri(
               'KDV Tutarı',
-              _para(
-                fis.kdvTutari,
-              ),
+              _para(fis.kdvTutari),
             ),
-
-            const SizedBox(
-              height: 8,
-            ),
-
+            const SizedBox(height: 8),
             _bilgiSatiri(
               "KDV'li Tutar",
-              _para(
-                fis.kdvliTutar,
-              ),
+              _para(fis.kdvliTutar),
             ),
-
             if (fis.ozet.isNotEmpty) ...[
-              const SizedBox(
-                height: 8,
-              ),
+              const SizedBox(height: 8),
               _bilgiSatiri(
                 'Özet',
                 fis.ozet,
               ),
             ],
-
-            const SizedBox(
-              height: 14,
-            ),
-
+            const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
-                  child:
-                      OutlinedButton
-                          .icon(
+                  child: OutlinedButton.icon(
                     onPressed:
                         _bekleyenFisiDuzenlemeyeAc,
-                    icon:
-                        const Icon(
-                      Icons.edit,
-                    ),
-                    label:
-                        const Text(
-                      'Düzenle',
-                    ),
+                    icon: const Icon(Icons.edit),
+                    label: const Text('Düzenle'),
                     style:
-                        OutlinedButton
-                            .styleFrom(
-                      foregroundColor:
-                          Colors
-                              .teal,
+                        OutlinedButton.styleFrom(
+                      foregroundColor: Colors.teal,
                     ),
                   ),
                 ),
-
-                const SizedBox(
-                  width: 8,
-                ),
-
+                const SizedBox(width: 8),
                 Expanded(
-                  child:
-                      FilledButton
-                          .icon(
+                  child: FilledButton.icon(
                     onPressed:
                         _bekleyenFisiKaydet,
-                    icon:
-                        const Icon(
-                      Icons.save,
-                    ),
-                    label:
-                        const Text(
-                      'Kaydet',
-                    ),
+                    icon: const Icon(Icons.save),
+                    label: const Text('Kaydet'),
                     style:
-                        FilledButton
-                            .styleFrom(
-                      backgroundColor:
-                          Colors
-                              .teal,
-                      foregroundColor:
-                          Colors
-                              .white,
+                        FilledButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
                     ),
                   ),
                 ),
               ],
             ),
-
-            const SizedBox(
-              height: 8,
-            ),
-
+            const SizedBox(height: 8),
             SizedBox(
-              width:
-                  double.infinity,
-              child:
-                  TextButton.icon(
+              width: double.infinity,
+              child: TextButton.icon(
                 onPressed: () {
                   setState(() {
-                    _bekleyenFis =
-                        null;
+                    _bekleyenFis = null;
                     _bekleyenFisDuzenleniyor =
                         false;
                   });
                 },
-                icon:
-                    const Icon(
-                  Icons.close,
-                ),
-                label:
-                    const Text(
+                icon: const Icon(Icons.close),
+                label: const Text(
                   'Kaydetmeden Vazgeç',
                 ),
                 style:
-                    TextButton
-                        .styleFrom(
+                    TextButton.styleFrom(
                   foregroundColor:
-                      Colors
-                          .redAccent,
+                      Colors.redAccent,
                 ),
               ),
             ),
@@ -1918,7 +1558,7 @@ kullanarak eksik değerleri hesapla.
   }
 
   // =====================================================
-  // BEKLEYEN FİŞ DÜZENLEME EKRANI
+  // BEKLEYEN FİŞ DÜZENLEME
   // =====================================================
 
   Widget _bekleyenFisDuzenlemeWidget() {
@@ -1926,145 +1566,94 @@ kullanarak eksik değerleri hesapla.
       elevation: 4,
       color: Colors.teal.shade50,
       child: Padding(
-        padding:
-            const EdgeInsets.all(
-          14,
-        ),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment:
-              CrossAxisAlignment
-                  .start,
+              CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 const Icon(
                   Icons.edit,
-                  color:
-                      Colors.teal,
+                  color: Colors.teal,
                 ),
-                const SizedBox(
-                  width: 8,
-                ),
+                const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
                     'Fiş Bilgilerini Düzenle',
-                    style:
-                        TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
-                      fontWeight:
-                          FontWeight.bold,
-                      color:
-                          Colors.teal,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal,
                     ),
                   ),
                 ),
               ],
             ),
-
-            const SizedBox(
-              height: 14,
-            ),
-
+            const SizedBox(height: 14),
             _duzenlemeAlani(
               'Mağaza / Firma',
               _bekleyenMagazaController,
               Icons.store,
             ),
-
-            const SizedBox(
-              height: 10,
-            ),
-
+            const SizedBox(height: 10),
             _duzenlemeAlani(
               'Tarih',
               _bekleyenTarihController,
               Icons.calendar_today,
             ),
-
-            const SizedBox(
-              height: 10,
-            ),
-
+            const SizedBox(height: 10),
             _duzenlemeAlani(
               'KDV Oranı (%)',
               _bekleyenKdvOraniController,
               Icons.percent,
               sayisal: true,
             ),
-
-            const SizedBox(
-              height: 10,
-            ),
-
+            const SizedBox(height: 10),
             _duzenlemeAlani(
               "KDV'siz Tutar",
               _bekleyenKdvsizController,
               Icons.receipt_long,
               sayisal: true,
             ),
-
-            const SizedBox(
-              height: 10,
-            ),
-
+            const SizedBox(height: 10),
             _duzenlemeAlani(
               "KDV'li Tutar",
               _bekleyenKdvliController,
               Icons.payments,
               sayisal: true,
             ),
-
-            const SizedBox(
-              height: 10,
-            ),
-
+            const SizedBox(height: 10),
             _duzenlemeAlani(
               'Özet',
               _bekleyenOzetController,
               Icons.notes,
               maxLines: 2,
             ),
-
-            const SizedBox(
-              height: 14,
-            ),
-
+            const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
-                  child:
-                      OutlinedButton(
+                  child: OutlinedButton(
                     onPressed:
                         _bekleyenDuzenlemeyiIptalEt,
                     child:
-                        const Text(
-                      'İptal',
-                    ),
+                        const Text('İptal'),
                   ),
                 ),
-                const SizedBox(
-                  width: 10,
-                ),
+                const SizedBox(width: 10),
                 Expanded(
-                  child:
-                      FilledButton
-                          .icon(
+                  child: FilledButton.icon(
                     onPressed:
                         _bekleyenFisDegisiklikleriniUygula,
-                    icon:
-                        const Icon(
-                      Icons.check,
-                    ),
-                    label:
-                        const Text(
+                    icon: const Icon(Icons.check),
+                    label: const Text(
                       'Değişiklikleri Uygula',
                     ),
                     style:
-                        FilledButton
-                            .styleFrom(
+                        FilledButton.styleFrom(
                       backgroundColor:
-                          Colors
-                              .teal,
+                          Colors.teal,
                     ),
                   ),
                 ),
@@ -2077,7 +1666,7 @@ kullanarak eksik değerleri hesapla.
   }
 
   // =====================================================
-  // KAYITLI FİŞ DÜZENLEME EKRANI
+  // KAYITLI FİŞ DÜZENLEME
   // =====================================================
 
   Widget _kayitliFisDuzenlemeWidget(
@@ -2085,149 +1674,96 @@ kullanarak eksik değerleri hesapla.
   ) {
     return Card(
       elevation: 4,
-      color: Colors.blueGrey
-          .shade50,
+      color: Colors.blueGrey.shade50,
       child: Padding(
-        padding:
-            const EdgeInsets.all(
-          14,
-        ),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment:
-              CrossAxisAlignment
-                  .start,
+              CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 const Icon(
                   Icons.edit,
-                  color:
-                      Colors.blueGrey,
+                  color: Colors.blueGrey,
                 ),
-                const SizedBox(
-                  width: 8,
-                ),
+                const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
                     'Kayıtlı Fişi Düzenle',
-                    style:
-                        TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
-                      fontWeight:
-                          FontWeight.bold,
-                      color:
-                          Colors
-                              .blueGrey,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blueGrey,
                     ),
                   ),
                 ),
               ],
             ),
-
-            const SizedBox(
-              height: 14,
-            ),
-
+            const SizedBox(height: 14),
             _duzenlemeAlani(
               'Mağaza / Firma',
               _kayitliMagazaController,
               Icons.store,
             ),
-
-            const SizedBox(
-              height: 10,
-            ),
-
+            const SizedBox(height: 10),
             _duzenlemeAlani(
               'Tarih',
               _kayitliTarihController,
               Icons.calendar_today,
             ),
-
-            const SizedBox(
-              height: 10,
-            ),
-
+            const SizedBox(height: 10),
             _duzenlemeAlani(
               'KDV Oranı (%)',
               _kayitliKdvOraniController,
               Icons.percent,
               sayisal: true,
             ),
-
-            const SizedBox(
-              height: 10,
-            ),
-
+            const SizedBox(height: 10),
             _duzenlemeAlani(
               "KDV'siz Tutar",
               _kayitliKdvsizController,
               Icons.receipt_long,
               sayisal: true,
             ),
-
-            const SizedBox(
-              height: 10,
-            ),
-
+            const SizedBox(height: 10),
             _duzenlemeAlani(
               "KDV'li Tutar",
               _kayitliKdvliController,
               Icons.payments,
               sayisal: true,
             ),
-
-            const SizedBox(
-              height: 10,
-            ),
-
+            const SizedBox(height: 10),
             _duzenlemeAlani(
               'Özet',
               _kayitliOzetController,
               Icons.notes,
               maxLines: 2,
             ),
-
-            const SizedBox(
-              height: 14,
-            ),
-
+            const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
-                  child:
-                      OutlinedButton(
+                  child: OutlinedButton(
                     onPressed:
                         _kayitliDuzenlemeyiIptalEt,
                     child:
-                        const Text(
-                      'İptal',
-                    ),
+                        const Text('İptal'),
                   ),
                 ),
-                const SizedBox(
-                  width: 10,
-                ),
+                const SizedBox(width: 10),
                 Expanded(
-                  child:
-                      FilledButton
-                          .icon(
+                  child: FilledButton.icon(
                     onPressed:
                         _kayitliFisDegisiklikleriniKaydet,
-                    icon:
-                        const Icon(
-                      Icons.save,
-                    ),
-                    label:
-                        const Text(
+                    icon: const Icon(Icons.save),
+                    label: const Text(
                       'Değişiklikleri Kaydet',
                     ),
                     style:
-                        FilledButton
-                            .styleFrom(
+                        FilledButton.styleFrom(
                       backgroundColor:
-                          Colors
-                              .teal,
+                          Colors.teal,
                     ),
                   ),
                 ),
@@ -2245,8 +1781,7 @@ kullanarak eksik değerleri hesapla.
 
   Widget _duzenlemeAlani(
     String label,
-    TextEditingController
-        controller,
+    TextEditingController controller,
     IconData icon, {
     bool sayisal = false,
     int maxLines = 1,
@@ -2255,18 +1790,14 @@ kullanarak eksik değerleri hesapla.
       controller: controller,
       maxLines: maxLines,
       keyboardType: sayisal
-          ? const TextInputType
-              .numberWithOptions(
+          ? const TextInputType.numberWithOptions(
               decimal: true,
             )
           : TextInputType.text,
-      decoration:
-          InputDecoration(
+      decoration: InputDecoration(
         labelText: label,
-        prefixIcon:
-            Icon(icon),
-        border:
-            const OutlineInputBorder(),
+        prefixIcon: Icon(icon),
+        border: const OutlineInputBorder(),
       ),
     );
   }
@@ -2281,25 +1812,20 @@ kullanarak eksik değerleri hesapla.
   ) {
     return Row(
       mainAxisAlignment:
-          MainAxisAlignment
-              .spaceBetween,
+          MainAxisAlignment.spaceBetween,
       children: [
         Text(
           baslik,
-          style:
-              const TextStyle(
+          style: const TextStyle(
             color: Colors.grey,
           ),
         ),
         Flexible(
           child: Text(
             deger,
-            textAlign:
-                TextAlign.right,
-            style:
-                const TextStyle(
-              fontWeight:
-                  FontWeight.bold,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
             ),
           ),
         ),
@@ -2312,19 +1838,14 @@ kullanarak eksik değerleri hesapla.
   // =====================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title:
-            const Text(
+        title: const Text(
           'POS Fiş Tarayıcı',
         ),
-        backgroundColor:
-            Colors.teal,
-        foregroundColor:
-            Colors.white,
+        backgroundColor: Colors.teal,
+        foregroundColor: Colors.white,
         centerTitle: true,
         actions: [
           IconButton(
@@ -2333,25 +1854,17 @@ kullanarak eksik değerleri hesapla.
             onPressed:
                 _tarananFislerDosyasiniIndir,
             icon:
-                const Icon(
-              Icons.file_download,
-            ),
+                const Icon(Icons.file_download),
           ),
-          if (_tarananFisler
-              .isNotEmpty)
+          if (_tarananFisler.isNotEmpty)
             IconButton(
-              tooltip:
-                  'Fişleri Temizle',
-              onPressed:
-                  _fisleriTemizle,
+              tooltip: 'Fişleri Temizle',
+              onPressed: _fisleriTemizle,
               icon:
-                  const Icon(
-                Icons.delete_sweep,
-              ),
+                  const Icon(Icons.delete_sweep),
             ),
         ],
       ),
-
       body: Column(
         children: [
           // =================================================
@@ -2359,13 +1872,10 @@ kullanarak eksik değerleri hesapla.
           // =================================================
 
           Container(
-            width:
-                double.infinity,
+            width: double.infinity,
             padding:
-                const EdgeInsets
-                    .all(16),
-            color:
-                Colors.teal.shade50,
+                const EdgeInsets.all(16),
+            color: Colors.teal.shade50,
             child: Column(
               children: [
                 Row(
@@ -2380,25 +1890,19 @@ kullanarak eksik değerleri hesapla.
                       children: [
                         const Text(
                           'KÜMÜLATİF TOPLAM',
-                          style:
-                              TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight:
-                                FontWeight
-                                    .bold,
-                            color:
-                                Colors
-                                    .teal,
+                                FontWeight.bold,
+                            color: Colors.teal,
                           ),
                         ),
                         Text(
                           '${_tarananFisler.length} Adet Fiş',
-                          style:
-                              TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: Colors
-                                .grey
-                                .shade700,
+                            color:
+                                Colors.grey.shade700,
                           ),
                         ),
                       ],
@@ -2407,25 +1911,17 @@ kullanarak eksik değerleri hesapla.
                       _para(
                         _kumulatifKdvliToplam,
                       ),
-                      style:
-                          const TextStyle(
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight:
-                            FontWeight
-                                .bold,
-                        color:
-                            Colors.teal,
+                            FontWeight.bold,
+                        color: Colors.teal,
                       ),
                     ),
                   ],
                 ),
-
-                const SizedBox(
-                  height: 10,
-                ),
-
+                const SizedBox(height: 10),
                 const Divider(),
-
                 Row(
                   mainAxisAlignment:
                       MainAxisAlignment
@@ -2441,11 +1937,7 @@ kullanarak eksik değerleri hesapla.
                     ),
                   ],
                 ),
-
-                const SizedBox(
-                  height: 6,
-                ),
-
+                const SizedBox(height: 6),
                 Row(
                   mainAxisAlignment:
                       MainAxisAlignment
@@ -2458,22 +1950,15 @@ kullanarak eksik değerleri hesapla.
                       _para(
                         _kumulatifKdvToplam,
                       ),
-                      style:
-                          const TextStyle(
-                        color:
-                            Colors.orange,
+                      style: const TextStyle(
+                        color: Colors.orange,
                         fontWeight:
-                            FontWeight
-                                .bold,
+                            FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
-
-                const SizedBox(
-                  height: 6,
-                ),
-
+                const SizedBox(height: 6),
                 Row(
                   mainAxisAlignment:
                       MainAxisAlignment
@@ -2486,13 +1971,10 @@ kullanarak eksik değerleri hesapla.
                       _para(
                         _kumulatifKdvliToplam,
                       ),
-                      style:
-                          const TextStyle(
-                        color:
-                            Colors.teal,
+                      style: const TextStyle(
+                        color: Colors.teal,
                         fontWeight:
-                            FontWeight
-                                .bold,
+                            FontWeight.bold,
                       ),
                     ),
                   ],
@@ -2506,226 +1988,167 @@ kullanarak eksik değerleri hesapla.
           // =================================================
 
           Expanded(
-            child:
-                SingleChildScrollView(
+            child: SingleChildScrollView(
               padding:
-                  const EdgeInsets
-                      .all(16),
+                  const EdgeInsets.all(16),
               child: Column(
                 children: [
                   // RESİM
                   SizedBox(
                     height: 200,
-                    width:
-                        double.infinity,
-                    child:
-                        Container(
+                    width: double.infinity,
+                    child: Container(
                       decoration:
                           BoxDecoration(
-                        color: Colors
-                            .grey
-                            .shade200,
+                        color: Colors.grey.shade200,
                         borderRadius:
-                            BorderRadius
-                                .circular(
-                          12,
-                        ),
-                        border:
-                            Border.all(
-                          color: Colors
-                              .grey
-                              .shade400,
+                            BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.grey.shade400,
                         ),
                       ),
-                      child:
-                          _yukleniyor
-                              ? const Center(
+                      child: _yukleniyor
+                          ? const Center(
+                              child: Column(
+                                mainAxisAlignment:
+                                    MainAxisAlignment
+                                        .center,
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(
+                                    height: 12,
+                                  ),
+                                  Text(
+                                    'Fiş analiz ediliyor...',
+                                  ),
+                                ],
+                              ),
+                            )
+                          : _secilenResimBytes !=
+                                  null
+                              ? ClipRRect(
+                                  borderRadius:
+                                      BorderRadius.circular(
+                                    12,
+                                  ),
                                   child:
-                                      Column(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment
-                                            .center,
-                                    children: [
-                                      CircularProgressIndicator(),
-                                      SizedBox(
-                                        height:
-                                            12,
-                                      ),
-                                      Text(
-                                        'Fiş analiz ediliyor...',
-                                      ),
-                                    ],
+                                      Image.memory(
+                                    _secilenResimBytes!,
+                                    fit: BoxFit.contain,
                                   ),
                                 )
-                              : _secilenResimBytes !=
-                                      null
-                                  ? ClipRRect(
-                                      borderRadius:
-                                          BorderRadius.circular(
-                                        12,
-                                      ),
-                                      child:
-                                          Image.memory(
-                                        _secilenResimBytes!,
-                                        fit: BoxFit
-                                            .contain,
-                                      ),
-                                    )
-                                  : const Center(
-                                      child:
-                                          Text(
-                                        'Bilgisayardan fiş görseli seçin',
-                                      ),
-                                    ),
+                              : const Center(
+                                  child: Text(
+                                    'Bilgisayardan fiş görseli seçin',
+                                  ),
+                                ),
                     ),
                   ),
 
-                  const SizedBox(
-                    height: 12,
-                  ),
+                  const SizedBox(height: 12),
 
                   // BUTONLAR
                   Row(
                     children: [
                       Expanded(
                         child:
-                            ElevatedButton
-                                .icon(
-                          onPressed:
-                              _yukleniyor
-                                  ? null
-                                  : () =>
-                                      _resimSec(
-                                        ImageSource
-                                            .gallery,
-                                      ),
-                          icon:
-                              const Icon(
-                            Icons
-                                .file_upload,
+                            ElevatedButton.icon(
+                          onPressed: _yukleniyor
+                              ? null
+                              : () => _resimSec(
+                                    ImageSource
+                                        .gallery,
+                                  ),
+                          icon: const Icon(
+                            Icons.file_upload,
                           ),
-                          label:
-                              const Text(
+                          label: const Text(
                             'Fiş Seç',
                           ),
                         ),
                       ),
-
-                      const SizedBox(
-                        width: 10,
-                      ),
-
+                      const SizedBox(width: 10),
                       Expanded(
                         child:
-                            ElevatedButton
-                                .icon(
+                            ElevatedButton.icon(
                           onPressed:
                               (_secilenResimBytes ==
                                           null ||
                                       _yukleniyor)
                                   ? null
                                   : _fisAnalizEt,
-                          icon:
-                              const Icon(
-                            Icons
-                                .auto_awesome,
+                          icon: const Icon(
+                            Icons.auto_awesome,
                           ),
-                          label:
-                              const Text(
+                          label: const Text(
                             'FİŞİ ANALİZ ET',
                           ),
                           style:
-                              ElevatedButton
-                                  .styleFrom(
+                              ElevatedButton.styleFrom(
                             backgroundColor:
-                                Colors
-                                    .teal,
+                                Colors.teal,
                             foregroundColor:
-                                Colors
-                                    .white,
+                                Colors.white,
                           ),
                         ),
                       ),
                     ],
                   ),
 
-                  const SizedBox(
-                    height: 16,
-                  ),
+                  const SizedBox(height: 16),
 
                   // BEKLEYEN FİŞ
-                  if (_bekleyenFis !=
-                      null)
+                  if (_bekleyenFis != null)
                     _bekleyenFisWidget(),
+
+                  const SizedBox(height: 16),
 
                   // =================================================
                   // KAYITLI FİŞLER
                   // =================================================
 
-                  const SizedBox(
-                    height: 16,
-                  ),
-
                   Align(
                     alignment:
-                        Alignment
-                            .centerLeft,
-                    child:
-                        Text(
+                        Alignment.centerLeft,
+                    child: Text(
                       'TARANAN FİŞLER',
-                      style:
-                          TextStyle(
+                      style: TextStyle(
                         fontSize: 17,
                         fontWeight:
-                            FontWeight
-                                .bold,
-                        color: Colors
-                            .teal
-                            .shade800,
+                            FontWeight.bold,
+                        color:
+                            Colors.teal.shade800,
                       ),
                     ),
                   ),
 
-                  const SizedBox(
-                    height: 8,
-                  ),
+                  const SizedBox(height: 8),
 
-                  if (_tarananFisler
-                      .isEmpty)
+                  if (_tarananFisler.isEmpty)
                     const Padding(
                       padding:
-                          EdgeInsets
-                              .all(
-                        30,
-                      ),
-                      child:
-                          Text(
+                          EdgeInsets.all(30),
+                      child: Text(
                         'Henüz kaydedilmiş fiş yok.',
-                        style:
-                            TextStyle(
-                          color:
-                              Colors.grey,
+                        style: TextStyle(
+                          color: Colors.grey,
                         ),
                       ),
                     ),
 
                   ...List.generate(
-                    _tarananFisler
-                        .length,
+                    _tarananFisler.length,
                     (index) {
                       final fis =
-                          _tarananFisler[
-                              index];
+                          _tarananFisler[index];
 
-                      // Kayıt düzenleniyorsa
                       if (_duzenlenenKayitIndex ==
                           index) {
                         return Padding(
                           padding:
                               const EdgeInsets
                                   .only(
-                            bottom:
-                                12,
+                            bottom: 12,
                           ),
                           child:
                               _kayitliFisDuzenlemeWidget(
@@ -2735,15 +2158,11 @@ kullanarak eksik değerleri hesapla.
                       }
 
                       return Card(
-                        child:
-                            Padding(
+                        child: Padding(
                           padding:
                               const EdgeInsets
-                                  .all(
-                            10,
-                          ),
-                          child:
-                              Column(
+                                  .all(10),
+                          child: Column(
                             children: [
                               ListTile(
                                 contentPadding:
@@ -2751,18 +2170,14 @@ kullanarak eksik değerleri hesapla.
                                 leading:
                                     const CircleAvatar(
                                   backgroundColor:
-                                      Colors
-                                          .teal,
-                                  child:
-                                      Icon(
-                                    Icons
-                                        .receipt,
+                                      Colors.teal,
+                                  child: Icon(
+                                    Icons.receipt,
                                     color:
                                         Colors.white,
                                   ),
                                 ),
-                                title:
-                                    Text(
+                                title: Text(
                                   fis.magaza,
                                   style:
                                       const TextStyle(
@@ -2847,8 +2262,7 @@ kullanarak eksik değerleri hesapla.
                                       },
                                       icon:
                                           const Icon(
-                                        Icons
-                                            .edit,
+                                        Icons.edit,
                                       ),
                                       label:
                                           const Text(
@@ -2864,8 +2278,7 @@ kullanarak eksik değerleri hesapla.
                                   ),
 
                                   const SizedBox(
-                                    width:
-                                        10,
+                                    width: 10,
                                   ),
 
                                   Expanded(
